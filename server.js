@@ -9,6 +9,7 @@ import { verifyToken } from "./middleware/auth.js";
 import { authorize } from "./middleware/authorize.js";
 import equipmentRoutes from "./routes/equipmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
+import bookingRoutes from "./routes/bookingRoutes.js";
 
 dotenv.config();
 
@@ -21,6 +22,7 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/admin", adminRoutes);
+app.use("/api/bookings", bookingRoutes);
 
 app.get("/", (req, res) => {
   res.send("Equipment Rental Server is Running!");
