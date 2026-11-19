@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
+
 export async function register(req, res) {
   try {
     const { name, email, password, role } = req.body;
@@ -16,7 +17,6 @@ export async function register(req, res) {
         message: "Password must be at least 6 characters.",
       });
     }
-
 
     const userRole = role || "customer";
 
@@ -50,7 +50,6 @@ export async function register(req, res) {
 
     const result = await db.collection("users").insertOne(newUser);
 
-  
     const token = jwt.sign(
       {
         userId: result.insertedId.toString(),
@@ -60,7 +59,7 @@ export async function register(req, res) {
       { expiresIn: "7d" },
     );
 
-    res.status(201).json({
+    return res.status(201).json({
       message: "Registration successful!",
       token,
       user: {
@@ -73,7 +72,66 @@ export async function register(req, res) {
   } catch (error) {
     console.error("Registration error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
+
+export async function login(req, res) {
+  try {
+    const { email, password } = req.body;
+
+    if (!email || !password) {
+      return res.status(400).json({
+        message: "Email and password are required.",
+      });
+    }
+
+    const db = req.app.locals.db;
+
+    const user = await db.collection("users").findOne({
+      email: email.toLowerCase(),
+    });
+
+    if (!user) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const isMatch = await bcrypt.compare(password, user.password);
+
+    if (!isMatch) {
+      return res.status(401).json({
+        message: "Invalid email or password.",
+      });
+    }
+
+    const token = jwt.sign(
+      {
+        userId: user._id.toString(),
+        role: user.role,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "7d" },
+    );
+
+    return res.status(200).json({
+      message: "Login successful!",
+      token,
+      user: {
+        id: user._id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+      },
+    });
+  } catch (error) {
+    console.error("Login error:", error);
+
+    return res.status(500).json({
       message: "Internal server error.",
     });
   }
