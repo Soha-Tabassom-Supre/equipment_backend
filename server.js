@@ -10,6 +10,8 @@ import { authorize } from "./middleware/authorize.js";
 import equipmentRoutes from "./routes/equipmentRoutes.js";
 import adminRoutes from "./routes/adminRoutes.js";
 import bookingRoutes from "./routes/bookingRoutes.js";
+import paymentRoutes from "./routes/paymentRoutes.js";
+import { handleStripeWebhook } from "./controllers/paymentController.js";
 
 dotenv.config();
 
@@ -17,12 +19,19 @@ const app = express();
 const PORT = process.env.PORT || 5000;
 
 app.use(cors());
+app.post(
+  "/api/payments/webhook",
+  express.raw({ type: "application/json" }),
+  handleStripeWebhook,
+);
+
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
 app.use("/api/equipment", equipmentRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/bookings", bookingRoutes);
+app.use("/api/payments", paymentRoutes);
 
 app.get("/", (req, res) => {
   res.send("Equipment Rental Server is Running!");

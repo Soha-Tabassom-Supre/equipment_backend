@@ -27,7 +27,6 @@ router.get(
 
 router.patch("/:id/accept", verifyToken, authorize("owner"), acceptBooking)
 
-
 router.patch("/:id/reject", verifyToken, authorize("owner"), rejectBooking)
 
 router.patch("/:id/cancel", verifyToken, authorize("customer"), cancelBooking);
