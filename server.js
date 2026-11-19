@@ -7,6 +7,8 @@ import { createIndexes } from "./config/indexes.js";
 import authRoutes from "./routes/authRoutes.js";
 import { verifyToken } from "./middleware/auth.js";
 import { authorize } from "./middleware/authorize.js";
+import equipmentRoutes from "./routes/equipmentRoutes.js";
+import adminRoutes from "./routes/adminRoutes.js";
 
 dotenv.config();
 
@@ -17,6 +19,8 @@ app.use(cors());
 app.use(express.json());
 
 app.use("/api/auth", authRoutes);
+app.use("/api/equipment", equipmentRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.get("/", (req, res) => {
   res.send("Equipment Rental Server is Running!");

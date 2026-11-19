@@ -94,6 +94,10 @@ export async function login(req, res) {
     const user = await db.collection("users").findOne({
       email: email.toLowerCase(),
     });
+    
+    console.log("User found:", !!user);
+    console.log("Password field exists:", !!user?.password);
+    console.log("Stored role:", user?.role);
 
     if (!user) {
       return res.status(401).json({
@@ -102,7 +106,7 @@ export async function login(req, res) {
     }
 
     const isMatch = await bcrypt.compare(password, user.password);
-
+     console.log("Password matches:", isMatch);
     if (!isMatch) {
       return res.status(401).json({
         message: "Invalid email or password.",
