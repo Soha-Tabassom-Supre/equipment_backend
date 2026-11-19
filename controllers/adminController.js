@@ -424,3 +424,100 @@ export async function cancelBookingByAdmin(req, res) {
     });
   }
 }
+
+
+
+export async function getAdminAnalytics(req, res) {
+  try {
+    const db = req.app.locals.db;
+
+    const [
+      totalUsers,
+      totalCustomers,
+      totalOwners,
+      totalBlockedUsers,
+      totalEquipment,
+      pendingEquipment,
+      totalBookings,
+      pendingBookings,
+      confirmedBookings,
+      cancelledBookings,
+      revenueResult,
+    ] = await Promise.all([
+      db.collection("users").countDocuments(),
+
+      db.collection("users").countDocuments({
+        role: "customer",
+      }),
+
+      db.collection("users").countDocuments({
+        role: "owner",
+      }),
+
+      db.collection("users").countDocuments({
+        isBlocked: true,
+      }),
+
+      db.collection("equipment").countDocuments(),
+
+      db.collection("equipment").countDocuments({
+        status: "pending",
+      }),
+
+      db.collection("bookings").countDocuments(),
+
+      db.collection("bookings").countDocuments({
+        status: "pending",
+      }),
+
+      db.collection("bookings").countDocuments({
+        status: "confirmed",
+      }),
+
+      db.collection("bookings").countDocuments({
+        status: "cancelled",
+      }),
+
+      db
+        .collection("bookings")
+        .aggregate([
+          {
+            $match: {
+              paymentStatus: "paid",
+            },
+          },
+          {
+            $group: {
+              _id: null,
+              total: { $sum: "$totalAmount" },
+            },
+          },
+        ])
+        .toArray(),
+    ]);
+
+    const totalRevenue = revenueResult[0]?.total || 0;
+
+    return res.status(200).json({
+      analytics: {
+        totalUsers,
+        totalCustomers,
+        totalOwners,
+        totalBlockedUsers,
+        totalEquipment,
+        pendingEquipment,
+        totalBookings,
+        pendingBookings,
+        confirmedBookings,
+        cancelledBookings,
+        totalRevenue,
+      },
+    });
+  } catch (error) {
+    console.error("Admin analytics error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}

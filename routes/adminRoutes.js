@@ -11,6 +11,7 @@ import {
   getAllBookings,
   filterBookings,
   cancelBookingByAdmin,
+  getAdminAnalytics,
 } from "../controllers/adminController.js";
 
 import { verifyToken } from "../middleware/auth.js";
@@ -34,5 +35,5 @@ router.patch("/users/:id/status", toggleUserStatus);
 router.get("/bookings", getAllBookings);
 router.get("/bookings/filter", filterBookings);
 router.patch("/bookings/:id/cancel", cancelBookingByAdmin);
-
+router.get("/analytics", getAdminAnalytics);
 export default router;
