@@ -8,6 +8,9 @@ import {
   searchUsers,
   updateUserRole,
   toggleUserStatus,
+  getAllBookings,
+  filterBookings,
+  cancelBookingByAdmin,
 } from "../controllers/adminController.js";
 
 import { verifyToken } from "../middleware/auth.js";
@@ -28,5 +31,8 @@ router.get("/users", getAllUsers);
 router.get("/users/search", searchUsers);
 router.patch("/users/:id/role", updateUserRole);
 router.patch("/users/:id/status", toggleUserStatus);
+router.get("/bookings", getAllBookings);
+router.get("/bookings/filter", filterBookings);
+router.patch("/bookings/:id/cancel", cancelBookingByAdmin);
 
 export default router;

@@ -304,3 +304,123 @@ export async function toggleUserStatus(req, res) {
     });
   }
 }
+
+
+
+export async function getAllBookings(req, res) {
+  try {
+    const db = req.app.locals.db;
+
+    const bookings = await db
+      .collection("bookings")
+      .find({})
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return res.status(200).json({
+      totalBookings: bookings.length,
+      bookings,
+    });
+  } catch (error) {
+    console.error("Get all bookings error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
+
+
+export async function filterBookings(req, res) {
+  try {
+    const { status } = req.query;
+
+    const allowedStatuses = ["pending", "confirmed", "rejected", "cancelled"];
+
+    if (!status || !allowedStatuses.includes(status)) {
+      return res.status(400).json({
+        message: "Please provide a valid booking status.",
+      });
+    }
+
+    const db = req.app.locals.db;
+
+    const bookings = await db
+      .collection("bookings")
+      .find({ status })
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return res.status(200).json({
+      totalBookings: bookings.length,
+      bookings,
+    });
+  } catch (error) {
+    console.error("Filter bookings error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
+
+
+export async function cancelBookingByAdmin(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid booking ID.",
+      });
+    }
+
+    const db = req.app.locals.db;
+
+    const booking = await db.collection("bookings").findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!booking) {
+      return res.status(404).json({
+        message: "Booking not found.",
+      });
+    }
+
+    if (booking.paymentStatus === "paid") {
+      return res.status(409).json({
+        message: "Paid bookings require a Stripe refund before cancellation.",
+      });
+    }
+
+    if (!["pending", "confirmed"].includes(booking.status)) {
+      return res.status(400).json({
+        message: "This booking cannot be cancelled.",
+      });
+    }
+
+    await db.collection("bookings").updateOne(
+      { _id: new ObjectId(id) },
+      {
+        $set: {
+          status: "cancelled",
+          cancelledAt: new Date(),
+          cancelledBy: req.user.userId,
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    return res.status(200).json({
+      message: "Booking cancelled successfully.",
+    });
+  } catch (error) {
+    console.error("Admin booking cancellation error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
