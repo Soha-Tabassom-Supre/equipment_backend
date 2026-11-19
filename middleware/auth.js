@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
+import { ObjectId } from "mongodb";
 
-export function verifyToken(req, res, next) {
+export async function verifyToken(req, res, next) {
   const authHeader = req.headers.authorization;
 
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
@@ -14,7 +15,34 @@ export function verifyToken(req, res, next) {
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
-    req.user = decoded;
+    const db = req.app.locals.db;
+
+    const user = await db.collection("users").findOne(
+      { _id: new ObjectId(decoded.userId) },
+      {
+        projection: {
+          role: 1,
+          isBlocked: 1,
+        },
+      },
+    );
+
+    if (!user) {
+      return res.status(401).json({
+        message: "User account not found.",
+      });
+    }
+
+    if (user.isBlocked) {
+      return res.status(403).json({
+        message: "Your account has been blocked.",
+      });
+    }
+
+    req.user = {
+      ...decoded,
+      role: user.role,
+    };
 
     next();
   } catch (error) {

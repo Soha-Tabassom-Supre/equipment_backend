@@ -121,3 +121,186 @@ export async function rejectEquipment(req, res) {
     });
   }
 }
+
+
+
+export async function getAllUsers(req, res) {
+  try {
+    const db = req.app.locals.db;
+
+    const users = await db
+      .collection("users")
+      .find(
+        {},
+        {
+          projection: {
+            password: 0,
+          },
+        },
+      )
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return res.status(200).json({
+      totalUsers: users.length,
+      users,
+    });
+  } catch (error) {
+    console.error("Get users error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
+export async function searchUsers(req, res) {
+  try {
+    const { search = "" } = req.query;
+
+    const db = req.app.locals.db;
+
+    const users = await db
+      .collection("users")
+      .find(
+        {
+          $or: [
+            { name: { $regex: search, $options: "i" } },
+            { email: { $regex: search, $options: "i" } },
+          ],
+        },
+        {
+          projection: { password: 0 },
+        },
+      )
+      .sort({ createdAt: -1 })
+      .toArray();
+
+    return res.status(200).json({
+      totalUsers: users.length,
+      users,
+    });
+  } catch (error) {
+    console.error("Search users error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
+
+export async function updateUserRole(req, res) {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid user ID.",
+      });
+    }
+
+    if (!["customer", "owner"].includes(role)) {
+      return res.status(400).json({
+        message: "Invalid role.",
+      });
+    }
+
+  
+    if (id === req.user.userId) {
+      return res.status(403).json({
+        message: "You cannot change your own role.",
+      });
+    }
+
+    const db = req.app.locals.db;
+
+    const result = await db.collection("users").updateOne(
+      {
+        _id: new ObjectId(id),
+        role: { $ne: "admin" },
+      },
+      {
+        $set: {
+          role,
+          updatedAt: new Date(),
+        },
+      },
+    );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        message: "User not found or cannot change admin role.",
+      });
+    }
+
+    return res.status(200).json({
+      message: "User role updated successfully.",
+    });
+  } catch (error) {
+    console.error("Update user role error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
+
+
+
+export async function toggleUserStatus(req, res) {
+  try {
+    const { id } = req.params;
+    const { isBlocked } = req.body;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid user ID.",
+      });
+    }
+
+    if (typeof isBlocked !== "boolean") {
+      return res.status(400).json({
+        message: "isBlocked must be true or false.",
+      });
+    }
+
+    const db = req.app.locals.db;
+
+   const result = await db.collection("users").updateOne(
+     {
+       _id: {
+         $eq: new ObjectId(id),
+         $ne: new ObjectId(req.user.userId),
+       },
+       role: { $ne: "admin" },
+     },
+     {
+       $set: {
+         isBlocked,
+         updatedAt: new Date(),
+       },
+     },
+   );
+
+    if (result.matchedCount === 0) {
+      return res.status(404).json({
+        message: "User not found or cannot be blocked.",
+      });
+    }
+
+    return res.status(200).json({
+      message: isBlocked
+        ? "User blocked successfully."
+        : "User unblocked successfully.",
+    });
+  } catch (error) {
+    console.error("Toggle user status error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
