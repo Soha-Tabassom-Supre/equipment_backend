@@ -14,6 +14,7 @@ import paymentRoutes from "./routes/paymentRoutes.js";
 import { handleStripeWebhook } from "./controllers/paymentController.js";
 import favoriteRoutes from "./routes/favoriteRoutes.js";
 import reviewRoutes from "./routes/reviewRoutes.js";
+import ownerRoutes from "./routes/ownerRoutes.js";
 
 dotenv.config();
 
@@ -36,6 +37,7 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/favorites", favoriteRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/owner", ownerRoutes);
 
 app.get("/", (req, res) => {
   res.send("Equipment Rental Server is Running!");
