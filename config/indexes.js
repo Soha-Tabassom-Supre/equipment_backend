@@ -25,6 +25,13 @@ export async function createIndexes(db) {
 
   await db.collection("reviews").createIndex({ equipmentId: 1 });
   await db.collection("reviews").createIndex({ customerId: 1 });
-
+   
+  await db.collection("users").createIndex(
+    { googleId: 1 },
+    {
+      unique: true,
+      sparse: true,
+    },
+  );
   console.log("MongoDB indexes created successfully!");
 }
