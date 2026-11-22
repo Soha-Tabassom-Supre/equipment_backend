@@ -5,6 +5,7 @@ import {
   getAllEquipment,
   getEquipmentById,
   getMyEquipment,
+  getMyEquipmentById,
   updateEquipment,
   deleteEquipment,
 } from "../controllers/equipmentController.js";
@@ -20,6 +21,12 @@ router.get("/", getAllEquipment);
 
 router.get("/my-equipment", verifyToken, authorize("owner"), getMyEquipment);
 
+router.get(
+  "/my-equipment/:id",
+  verifyToken,
+  authorize("owner"),
+  getMyEquipmentById,
+);
 
 router.get("/:id", getEquipmentById);
 
@@ -31,5 +38,7 @@ router.patch("/:id", verifyToken, authorize("owner"), updateEquipment);
 
 
 router.delete("/:id", verifyToken, authorize("owner"), deleteEquipment);
+
+
 
 export default router;

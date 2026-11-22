@@ -1,11 +1,28 @@
 import { ObjectId } from "mongodb";
+
+const RENTAL_TYPES = ["daily", "weekly", "monthly"];
+
+const isValidPositiveNumber = (value) =>
+  Number.isFinite(Number(value)) && Number(value) > 0;
+
+const isValidQuantity = (value) =>
+  Number.isInteger(Number(value)) && Number(value) >= 1;
+
+const isValidImages = (images) =>
+  Array.isArray(images) && images.every((image) => typeof image === "string");
+
 export async function addEquipment(req, res) {
   try {
     const {
       name,
       description,
       category,
-      pricePerDay,
+      rentalType,
+      rentalPrice,
+      availableQuantity,
+      brand,
+      model,
+      rentalTerms,
       location,
       condition,
       images,
@@ -18,7 +35,6 @@ export async function addEquipment(req, res) {
       !description.trim() ||
       typeof category !== "string" ||
       !category.trim() ||
-      pricePerDay === undefined ||
       typeof location !== "string" ||
       !location.trim() ||
       typeof condition !== "string" ||
@@ -29,15 +45,45 @@ export async function addEquipment(req, res) {
       });
     }
 
-    if (!Number.isFinite(Number(pricePerDay)) || Number(pricePerDay) <= 0) {
+    if (!RENTAL_TYPES.includes(rentalType)) {
       return res.status(400).json({
-        message: "Price per day must be a positive number.",
+        message: "Rental type must be daily, weekly, or monthly.",
       });
     }
 
-    if (images !== undefined && !Array.isArray(images)) {
+    if (!isValidPositiveNumber(rentalPrice)) {
       return res.status(400).json({
-        message: "Images must be an array.",
+        message: "Rental price must be a positive number.",
+      });
+    }
+
+    if (!isValidQuantity(availableQuantity)) {
+      return res.status(400).json({
+        message: "Available quantity must be a positive whole number.",
+      });
+    }
+
+    if (brand !== undefined && typeof brand !== "string") {
+      return res.status(400).json({
+        message: "Brand must be a string.",
+      });
+    }
+
+    if (model !== undefined && typeof model !== "string") {
+      return res.status(400).json({
+        message: "Model must be a string.",
+      });
+    }
+
+    if (rentalTerms !== undefined && typeof rentalTerms !== "string") {
+      return res.status(400).json({
+        message: "Rental terms must be a string.",
+      });
+    }
+
+    if (images !== undefined && !isValidImages(images)) {
+      return res.status(400).json({
+        message: "Images must be an array of strings.",
       });
     }
 
@@ -47,7 +93,12 @@ export async function addEquipment(req, res) {
       name: name.trim(),
       description: description.trim(),
       category: category.trim(),
-      pricePerDay: Number(pricePerDay),
+      rentalType,
+      rentalPrice: Number(rentalPrice),
+      availableQuantity: Number(availableQuantity),
+      brand: brand?.trim() || "",
+      model: model?.trim() || "",
+      rentalTerms: rentalTerms?.trim() || "",
       location: location.trim(),
       condition: condition.trim(),
       images: images || [],
@@ -72,7 +123,6 @@ export async function addEquipment(req, res) {
   }
 }
 
-
 export async function getAllEquipment(req, res) {
   try {
     const db = req.app.locals.db;
@@ -88,7 +138,6 @@ export async function getAllEquipment(req, res) {
       limit = 10,
     } = req.query;
 
-   
     const parsedPage = Number(page);
     const parsedLimit = Number(limit);
 
@@ -103,7 +152,6 @@ export async function getAllEquipment(req, res) {
       });
     }
 
-   
     if (
       (minPrice !== undefined &&
         (!Number.isFinite(Number(minPrice)) || Number(minPrice) < 0)) ||
@@ -125,7 +173,6 @@ export async function getAllEquipment(req, res) {
       });
     }
 
-   
     const filter = {
       status: "approved",
     };
@@ -148,29 +195,26 @@ export async function getAllEquipment(req, res) {
       };
     }
 
-   
     if (minPrice !== undefined || maxPrice !== undefined) {
-      filter.pricePerDay = {};
+      filter.rentalPrice = {};
 
       if (minPrice !== undefined) {
-        filter.pricePerDay.$gte = Number(minPrice);
+        filter.rentalPrice.$gte = Number(minPrice);
       }
 
       if (maxPrice !== undefined) {
-        filter.pricePerDay.$lte = Number(maxPrice);
+        filter.rentalPrice.$lte = Number(maxPrice);
       }
     }
-
 
     let sortOption = { createdAt: -1 };
 
     if (sort === "price_asc") {
-      sortOption = { pricePerDay: 1 };
+      sortOption = { rentalPrice: 1 };
     } else if (sort === "price_desc") {
-      sortOption = { pricePerDay: -1 };
+      sortOption = { rentalPrice: -1 };
     }
 
-  
     const currentPage = parsedPage;
     const itemsPerPage = Math.min(50, parsedLimit);
     const skip = (currentPage - 1) * itemsPerPage;
@@ -235,7 +279,6 @@ export async function getEquipmentById(req, res) {
   }
 }
 
-
 export async function getMyEquipment(req, res) {
   try {
     const db = req.app.locals.db;
@@ -259,7 +302,6 @@ export async function getMyEquipment(req, res) {
   }
 }
 
-
 export async function updateEquipment(req, res) {
   try {
     const { id } = req.params;
@@ -274,7 +316,12 @@ export async function updateEquipment(req, res) {
       name,
       description,
       category,
-      pricePerDay,
+      rentalType,
+      rentalPrice,
+      availableQuantity,
+      brand,
+      model,
+      rentalTerms,
       location,
       condition,
       images,
@@ -327,19 +374,64 @@ export async function updateEquipment(req, res) {
       updates.condition = condition.trim();
     }
 
-    if (pricePerDay !== undefined) {
-      if (!Number.isFinite(Number(pricePerDay)) || Number(pricePerDay) <= 0) {
+    if (rentalType !== undefined) {
+      if (!RENTAL_TYPES.includes(rentalType)) {
         return res.status(400).json({
-          message: "Price per day must be a positive number.",
+          message: "Rental type must be daily, weekly, or monthly.",
         });
       }
-      updates.pricePerDay = Number(pricePerDay);
+      updates.rentalType = rentalType;
+    }
+
+    if (rentalPrice !== undefined) {
+      if (!isValidPositiveNumber(rentalPrice)) {
+        return res.status(400).json({
+          message: "Rental price must be a positive number.",
+        });
+      }
+      updates.rentalPrice = Number(rentalPrice);
+    }
+
+    if (availableQuantity !== undefined) {
+      if (!isValidQuantity(availableQuantity)) {
+        return res.status(400).json({
+          message: "Available quantity must be a positive whole number.",
+        });
+      }
+      updates.availableQuantity = Number(availableQuantity);
+    }
+
+    if (brand !== undefined) {
+      if (typeof brand !== "string") {
+        return res.status(400).json({
+          message: "Brand must be a string.",
+        });
+      }
+      updates.brand = brand.trim();
+    }
+
+    if (model !== undefined) {
+      if (typeof model !== "string") {
+        return res.status(400).json({
+          message: "Model must be a string.",
+        });
+      }
+      updates.model = model.trim();
+    }
+
+    if (rentalTerms !== undefined) {
+      if (typeof rentalTerms !== "string") {
+        return res.status(400).json({
+          message: "Rental terms must be a string.",
+        });
+      }
+      updates.rentalTerms = rentalTerms.trim();
     }
 
     if (images !== undefined) {
-      if (!Array.isArray(images)) {
+      if (!isValidImages(images)) {
         return res.status(400).json({
-          message: "Images must be an array.",
+          message: "Images must be an array of strings.",
         });
       }
       updates.images = images;
@@ -351,7 +443,6 @@ export async function updateEquipment(req, res) {
       });
     }
 
-  
     updates.status = "pending";
     updates.updatedAt = new Date();
 
@@ -419,3 +510,70 @@ export async function deleteEquipment(req, res) {
     });
   }
 }
+
+
+export async function getMyEquipmentById(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid equipment ID.",
+      });
+    }
+
+    const db = req.app.locals.db;
+
+    const equipment = await db.collection("equipment").findOne({
+      _id: new ObjectId(id),
+      ownerId: req.user.userId,
+    });
+
+    if (!equipment) {
+      return res.status(404).json({
+        message: "Equipment not found or you are not its owner.",
+      });
+    }
+
+    return res.status(200).json({ equipment });
+  } catch (error) {
+    console.error("Get owner equipment details error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
+export async function getEquipmentByIdForAdmin(req, res) {
+  try {
+    const { id } = req.params;
+
+    if (!ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid equipment ID.",
+      });
+    }
+
+    const db = req.app.locals.db;
+
+    const equipment = await db.collection("equipment").findOne({
+      _id: new ObjectId(id),
+    });
+
+    if (!equipment) {
+      return res.status(404).json({
+        message: "Equipment not found.",
+      });
+    }
+
+    return res.status(200).json({ equipment });
+  } catch (error) {
+    console.error("Get admin equipment details error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+

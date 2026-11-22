@@ -13,7 +13,7 @@ import {
   cancelBookingByAdmin,
   getAdminAnalytics,
 } from "../controllers/adminController.js";
-
+import { getEquipmentByIdForAdmin } from "../controllers/equipmentController.js";
 import { verifyToken } from "../middleware/auth.js";
 import { authorize } from "../middleware/authorize.js";
 
@@ -23,7 +23,7 @@ const router = express.Router();
 router.use(verifyToken, authorize("admin"));
 
 router.get("/pending-equipment", getPendingEquipment);
-
+router.get("/equipment/:id", getEquipmentByIdForAdmin);
 
 router.patch("/equipment/:id/approve", approveEquipment);
 
@@ -36,4 +36,5 @@ router.get("/bookings", getAllBookings);
 router.get("/bookings/filter", filterBookings);
 router.patch("/bookings/:id/cancel", cancelBookingByAdmin);
 router.get("/analytics", getAdminAnalytics);
+
 export default router;

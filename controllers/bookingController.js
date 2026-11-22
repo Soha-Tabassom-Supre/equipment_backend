@@ -3,19 +3,67 @@ import { ObjectId } from "mongodb";
 
 export async function createBooking(req, res) {
   try {
-    const { equipmentId, startDate, endDate } = req.body;
+    const {
+      equipmentId,
+      startDate,
+      endDate,
+      quantity,
+      contactNumber,
+      deliveryAddress,
+      additionalNotes = "",
+    } = req.body;
 
-
-    if (!equipmentId || !startDate || !endDate) {
+   
+    if (
+      !equipmentId ||
+      !startDate ||
+      !endDate ||
+      quantity === undefined ||
+      !contactNumber ||
+      !deliveryAddress
+    ) {
       return res.status(400).json({
-        message: "Equipment ID, start date and end date are required.",
+        message:
+          "Equipment ID, dates, quantity, contact number and delivery address are required.",
       });
     }
 
-   
+  
     if (!ObjectId.isValid(equipmentId)) {
       return res.status(400).json({
         message: "Invalid equipment ID.",
+      });
+    }
+
+  
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return res.status(400).json({
+        message: "Booking quantity must be a positive integer.",
+      });
+    }
+
+  
+    if (
+      typeof contactNumber !== "string" ||
+      !/^\+?[\d\s-]{7,20}$/.test(contactNumber.trim()) ||
+      contactNumber.replace(/\D/g, "").length < 7 ||
+      contactNumber.replace(/\D/g, "").length > 15
+    ) {
+      return res.status(400).json({
+        message: "Enter a valid contact number.",
+      });
+    }
+
+  
+    if (typeof deliveryAddress !== "string" || !deliveryAddress.trim()) {
+      return res.status(400).json({
+        message: "Delivery address is required.",
+      });
+    }
+
+    if (typeof additionalNotes !== "string" || additionalNotes.length > 1000) {
+      return res.status(400).json({
+        message: "Additional notes must be under 1000 characters.",
       });
     }
 
@@ -42,7 +90,6 @@ export async function createBooking(req, res) {
       });
     }
 
-    
     const today = new Date();
     today.setUTCHours(0, 0, 0, 0);
 
@@ -52,7 +99,6 @@ export async function createBooking(req, res) {
       });
     }
 
-
     if (end <= start) {
       return res.status(400).json({
         message: "End date must be after start date.",
@@ -61,7 +107,7 @@ export async function createBooking(req, res) {
 
     const db = req.app.locals.db;
 
-   
+    
     const equipment = await db.collection("equipment").findOne({
       _id: new ObjectId(equipmentId),
       status: "approved",
@@ -73,16 +119,78 @@ export async function createBooking(req, res) {
       });
     }
 
-
+   
     if (equipment.ownerId === req.user.userId) {
       return res.status(403).json({
         message: "You cannot rent your own equipment.",
       });
     }
 
+    
+    if (
+      !Number.isInteger(equipment.availableQuantity) ||
+      equipment.availableQuantity < 1
+    ) {
+      return res.status(400).json({
+        message: "This equipment is currently unavailable for booking.",
+      });
+    }
 
+    if (
+      !["daily", "weekly", "monthly"].includes(equipment.rentalType) ||
+      !Number.isFinite(equipment.rentalPrice) ||
+      equipment.rentalPrice <= 0
+    ) {
+      return res.status(400).json({
+        message: "Equipment rental pricing is not configured correctly.",
+      });
+    }
+
+    if (quantity > equipment.availableQuantity) {
+      return res.status(400).json({
+        message: `Only ${equipment.availableQuantity} units are available.`,
+      });
+    }
+
+   
+    const overlappingBookings = await db
+      .collection("bookings")
+      .find({
+        equipmentId: equipment._id,
+        status: { $in: ["pending", "confirmed"] },
+        startDate: { $lt: endDate },
+        endDate: { $gt: startDate },
+      })
+      .toArray();
+
+    const alreadyBookedQuantity = overlappingBookings.reduce(
+      (total, booking) => total + (booking.quantity || 1),
+      0,
+    );
+
+    const remainingQuantity =
+      equipment.availableQuantity - alreadyBookedQuantity;
+
+    if (quantity > remainingQuantity) {
+      return res.status(400).json({
+        message: `Only ${Math.max(0, remainingQuantity)} units are available for these dates.`,
+      });
+    }
+
+   
     const rentalDays = (end - start) / (1000 * 60 * 60 * 24);
-    const totalAmount = rentalDays * equipment.pricePerDay;
+
+    let rentalPeriods;
+
+    if (equipment.rentalType === "daily") {
+      rentalPeriods = rentalDays;
+    } else if (equipment.rentalType === "weekly") {
+      rentalPeriods = Math.ceil(rentalDays / 7);
+    } else {
+      rentalPeriods = Math.ceil(rentalDays / 30);
+    }
+
+    const totalAmount = rentalPeriods * equipment.rentalPrice * quantity;
 
    
     const newBooking = {
@@ -90,12 +198,25 @@ export async function createBooking(req, res) {
       ownerId: equipment.ownerId,
       equipmentId: equipment._id,
       equipmentName: equipment.name,
-      pricePerDay: equipment.pricePerDay,
+
+      rentalType: equipment.rentalType,
+      rentalPrice: equipment.rentalPrice,
+      rentalPeriods,
+      rentalDays,
+
+      quantity,
+      totalAmount,
+
       startDate,
       endDate,
-      rentalDays,
-      totalAmount,
+
+      contactNumber: contactNumber.trim(),
+      deliveryAddress: deliveryAddress.trim(),
+      additionalNotes: additionalNotes.trim(),
+
       status: "pending",
+      paymentStatus: "unpaid",
+
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -105,7 +226,10 @@ export async function createBooking(req, res) {
     return res.status(201).json({
       message: "Booking request submitted successfully!",
       bookingId: result.insertedId,
-      booking: newBooking,
+      booking: {
+        ...newBooking,
+        _id: result.insertedId,
+      },
     });
   } catch (error) {
     console.error("Create booking error:", error);
