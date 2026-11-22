@@ -4,15 +4,22 @@ import { createRemoteJWKSet, jwtVerify } from "jose";
 
 let betterAuthJWKS;
 
+function getBetterAuthBaseURL() {
+  const configuredURL = process.env.BETTER_AUTH_URL;
+
+  if (!configuredURL) {
+    throw new Error("BETTER_AUTH_URL is missing.");
+  }
+
+  
+  return new URL(configuredURL).origin;
+}
+
 function getBetterAuthJWKS() {
   if (!betterAuthJWKS) {
-    const baseURL = process.env.BETTER_AUTH_URL;
-
-    if (!baseURL) {
-      throw new Error("BETTER_AUTH_URL is missing.");
-    }
-
+    const baseURL = getBetterAuthBaseURL();
     const jwksURL = new URL("/api/auth/jwks", baseURL);
+
     betterAuthJWKS = createRemoteJWKSet(jwksURL);
   }
 
@@ -58,27 +65,12 @@ export async function verifyToken(req, res, next) {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
       userId = decoded.userId;
     } catch {
-      const baseURL = process.env.BETTER_AUTH_URL;
+      const baseURL = getBetterAuthBaseURL();
 
-      if (!baseURL) {
-        throw new Error("BETTER_AUTH_URL is missing.");
-      }
-
-      const parts = token.split(".");
-
-      if (parts.length !== 3) {
-        throw new Error("Invalid JWT format.");
-      }
-
-      const payload = JSON.parse(
-        Buffer.from(parts[1], "base64url").toString("utf8"),
-      );
-
-      console.log("JWT issuer:", payload.iss);
-      console.log("JWT audience:", payload.aud);
-      console.log("Expected URL:", baseURL);
-
-      const result = await jwtVerify(token, getBetterAuthJWKS());
+      const result = await jwtVerify(token, getBetterAuthJWKS(), {
+        issuer: baseURL,
+        audience: baseURL,
+      });
 
       decoded = result.payload;
       userId = decoded.sub;
