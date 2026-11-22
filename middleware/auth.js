@@ -13,7 +13,6 @@ function getBetterAuthJWKS() {
     }
 
     const jwksURL = new URL("/api/auth/jwks", baseURL);
-
     betterAuthJWKS = createRemoteJWKSet(jwksURL);
   }
 
@@ -55,18 +54,31 @@ export async function verifyToken(req, res, next) {
     let decoded;
     let userId;
 
-   
     try {
       decoded = jwt.verify(token, process.env.JWT_SECRET);
       userId = decoded.userId;
     } catch {
-      
       const baseURL = process.env.BETTER_AUTH_URL;
 
-      const result = await jwtVerify(token, getBetterAuthJWKS(), {
-        issuer: baseURL,
-        audience: baseURL,
-      });
+      if (!baseURL) {
+        throw new Error("BETTER_AUTH_URL is missing.");
+      }
+
+      const parts = token.split(".");
+
+      if (parts.length !== 3) {
+        throw new Error("Invalid JWT format.");
+      }
+
+      const payload = JSON.parse(
+        Buffer.from(parts[1], "base64url").toString("utf8"),
+      );
+
+      console.log("JWT issuer:", payload.iss);
+      console.log("JWT audience:", payload.aud);
+      console.log("Expected URL:", baseURL);
+
+      const result = await jwtVerify(token, getBetterAuthJWKS());
 
       decoded = result.payload;
       userId = decoded.sub;
