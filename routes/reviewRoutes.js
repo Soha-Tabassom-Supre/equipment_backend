@@ -3,6 +3,7 @@ import express from "express";
 import {
   createReview,
   getEquipmentReviews,
+  getLatestReviews,
   updateReview,
   deleteReview,
 } from "../controllers/reviewController.js";
@@ -14,7 +15,7 @@ const router = express.Router();
 
 
 router.get("/:equipmentId", getEquipmentReviews);
-
+router.get("/", getLatestReviews);
 
 router.post("/:equipmentId", verifyToken, authorize("customer"), createReview);
 

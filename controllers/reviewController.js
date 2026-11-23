@@ -1,5 +1,6 @@
 import { ObjectId } from "mongodb";
 
+const MAX_COMMENT_LENGTH = 1000;
 
 export async function createReview(req, res) {
   try {
@@ -24,6 +25,12 @@ export async function createReview(req, res) {
       });
     }
 
+    if (comment.trim().length > MAX_COMMENT_LENGTH) {
+      return res.status(400).json({
+        message: "Review comment cannot exceed 1000 characters.",
+      });
+    }
+
     const db = req.app.locals.db;
 
     const equipment = await db.collection("equipment").findOne({
@@ -34,23 +41,6 @@ export async function createReview(req, res) {
     if (!equipment) {
       return res.status(404).json({
         message: "Approved equipment not found.",
-      });
-    }
-
-    const today = new Date().toISOString().slice(0, 10);
-
-    const booking = await db.collection("bookings").findOne({
-      customerId: req.user.userId,
-      equipmentId: new ObjectId(equipmentId),
-      status: "confirmed",
-      paymentStatus: "paid",
-      endDate: { $lt: today },
-    });
-
-    if (!booking) {
-      return res.status(403).json({
-        message:
-          "You can review equipment only after completing a paid rental.",
       });
     }
 
@@ -93,7 +83,6 @@ export async function createReview(req, res) {
     });
   }
 }
-
 
 export async function getEquipmentReviews(req, res) {
   try {
@@ -140,7 +129,6 @@ export async function getEquipmentReviews(req, res) {
   }
 }
 
-
 export async function updateReview(req, res) {
   try {
     const { reviewId } = req.params;
@@ -167,6 +155,12 @@ export async function updateReview(req, res) {
     ) {
       return res.status(400).json({
         message: "Review comment cannot be empty.",
+      });
+    }
+
+    if (comment !== undefined && comment.trim().length > MAX_COMMENT_LENGTH) {
+      return res.status(400).json({
+        message: "Review comment cannot exceed 1000 characters.",
       });
     }
 
@@ -247,3 +241,35 @@ export async function deleteReview(req, res) {
     });
   }
 }
+
+
+export async function getLatestReviews(req, res) {
+  try {
+    const db = req.app.locals.db;
+
+    const reviews = await db
+      .collection("reviews")
+      .find({})
+      .sort({ createdAt: -1 })
+      .limit(4)
+      .project({
+        customerName: 1,
+        rating: 1,
+        comment: 1,
+        createdAt: 1,
+      })
+      .toArray();
+
+    return res.status(200).json({
+      totalReviews: reviews.length,
+      reviews,
+    });
+  } catch (error) {
+    console.error("Get latest reviews error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}
+
