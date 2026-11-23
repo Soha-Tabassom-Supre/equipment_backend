@@ -577,3 +577,43 @@ export async function getEquipmentByIdForAdmin(req, res) {
   }
 }
 
+
+export async function getEquipmentCategories(req, res) {
+  try {
+    const db = req.app.locals.db;
+
+    const categories = await db
+      .collection("equipment")
+      .aggregate([
+        {
+          $match: {
+            status: "approved",
+            category: { $exists: true, $ne: "" },
+          },
+        },
+        {
+          $group: {
+            _id: "$category",
+            count: { $sum: 1 },
+          },
+        },
+        {
+          $sort: { _id: 1 },
+        },
+      ])
+      .toArray();
+
+    return res.status(200).json({
+      categories: categories.map((item) => ({
+        name: item._id,
+        count: item.count,
+      })),
+    });
+  } catch (error) {
+    console.error("Get equipment categories error:", error);
+
+    return res.status(500).json({
+      message: "Internal server error.",
+    });
+  }
+}

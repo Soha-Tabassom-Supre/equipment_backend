@@ -8,6 +8,7 @@ import {
   getMyEquipmentById,
   updateEquipment,
   deleteEquipment,
+  getEquipmentCategories,
 } from "../controllers/equipmentController.js";
 
 import { verifyToken } from "../middleware/auth.js";
@@ -27,7 +28,7 @@ router.get(
   authorize("owner"),
   getMyEquipmentById,
 );
-
+router.get("/categories", getEquipmentCategories);
 router.get("/:id", getEquipmentById);
 
 
